@@ -149,7 +149,7 @@ if __name__ == '__main__':
     if os.path.isfile(model_name):
         print '\ndeleting weights\n'
         call(['rm', model_name])
-    for num_conv in range(10, 101, 10):
+    for num_conv in range(1, 102, 10):
         print '\n# of conv = ', str(num_conv), '\n'
         model = create_plain_model(num_conv=num_conv, batch_norm=False)
         if os.path.isfile(model_name):
