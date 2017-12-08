@@ -13,97 +13,22 @@ import os
 import pickle
 from subprocess import call
 
-def identity_block(x_, depth, last_layer=True, batch_norm=True):
-    x = Conv2D(depth, (3,3), padding='same', kernel_initializer='he_normal',
-               kernel_regularizer=regularizer, bias_regularizer=regularizer)(x_)
-    x = Activation('relu')(x)
-    if batch_norm is True:
-        x = BatchNormalization(center=False, scale=False)(x)
-
-    x = Conv2D(depth, (3,3), padding='same', kernel_initializer='he_normal',
-               kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
-    if last_layer is True:
-        #x = Lambda(lambda x: -x)(x)
-        x = Add()([x, x_])
-        x = Activation('relu')(x)
-        if batch_norm is True:
-            x = BatchNormalization(center=False, scale=False)(x)
-    return x
-
-def recursive_identity_block(x_, depth, batch_norm=True):
-    x = identity_block(x_, depth, batch_norm=batch_norm)
-    x = identity_block(x, depth, batch_norm=batch_norm)
-    x1 = identity_block(x, depth, last_layer=False, batch_norm=batch_norm)
-    x = Add()([x_, x, x1])
-    x = Activation('relu')(x)
-    if batch_norm is True:
-        x = BatchNormalization(center=False, scale=False)(x)
-    return x
-
-def create_recursive_residual_model(num_blocks=4, batch_norm=True):
-    img_in = Input((32,32,3))
-    x = img_in
-    
-    x = Conv2D(16, (3, 3), padding='same', kernel_initializer='he_normal',
-               kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
-    x = Activation('relu')(x)
-
-    for i in range(num_blocks):
-        x = recursive_identity_block(x, depth=16, batch_norm=batch_norm)
-
-    x = Flatten()(x)
-    x = Dense(num_classes)(x)
-    x = Activation('softmax')(x)
-    model = Model(img_in, x)
-    '''
-    if os.path.isfile(model_name):
-        model.load_weights(model_name, by_name=True)
-    '''
-    plot_model(model, show_shapes=True)
-    return model
-
-def create_residual_model(num_blocks=4, batch_norm=True):
-    img_in = Input((32,32,3))
-    x = img_in
-    
-    x = Conv2D(16, (3, 3), padding='same', kernel_initializer='he_normal',
-               kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
-    x = Activation('relu')(x)
-
-    for i in range(num_blocks):
-        x = identity_block(x, depth=16, batch_norm=batch_norm)
-
-    x = Flatten()(x)
-    x = Dense(num_classes)(x)
-    x = Activation('softmax')(x)
-    model = Model(img_in, x)
-    '''
-    if os.path.isfile(model_name):
-        model.load_weights(model_name, by_name=True)
-    '''
-    plot_model(model, show_shapes=True)
-    return model
-
 def create_plain_model(num_conv=4, batch_norm=True):
-    img_in = Input((32,32,3))
+    img_in = Input((32,32,3), name='input')
     x = img_in
     
     for i in range(num_conv):
         x = Conv2D(16, (3, 3), padding='same', kernel_initializer='he_normal',
-                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
-        x = Activation('relu')(x)
+                   kernel_regularizer=regularizer, bias_regularizer=regularizer,
+                   name='conv2d_'+str(i+1))(x)
+        x = Activation('relu', name='relu_'+str(i+1))(x)
         if batch_norm is True:
             x = BatchNormalization(scale=True, center=True)(x)
 
-    x = Flatten()(x)
-    x = Dense(num_classes)(x)
-    x = Activation('softmax')(x)
+    x = Flatten(name='flatten')(x)
+    x = Dense(num_classes, name='classify')(x)
+    x = Activation('softmax', name='activation_classify')(x)
     model = Model(img_in, x)
-    '''
-    if os.path.isfile(model_name):
-        model.load_weights(model_name, by_name=True)
-    '''
-    plot_model(model, show_shapes=True)
     return model
 
 def train(model):
@@ -136,9 +61,10 @@ def train(model):
 if __name__ == '__main__':
     batch_size = 100
     num_classes = 10
-    epochs = 1000
+    epochs = 100
     data_augmentation = True
-    model_name = 'num_conv.h5'
+    mode = 'plain'
+    model_name = mode + '.h5'
     regularizer = l2(1e-5)
 
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
@@ -149,17 +75,18 @@ if __name__ == '__main__':
     if os.path.isfile(model_name):
         print '\ndeleting weights\n'
         call(['rm', model_name])
-    for num_conv in range(1, 102, 10):
-        print '\n# of conv = ', str(num_conv), '\n'
-        model = create_plain_model(num_conv=num_conv, batch_norm=False)
+    for layer in range(1, 102, 10):
+        print '\n# of layers = ', str(layer), '\n'
+        model = create_plain_model(layer, batch_norm=False)
+        model.summary()
         if os.path.isfile(model_name):
             print '\nloading weights\n'
             model.load_weights(model_name, by_name=True)
         hist = train(model).history
-        hist['num_conv'] = num_conv
+        hist['layer'] = layer
         history.append(hist)
         model.save(model_name)
-    with open('num_conv.p', 'wb') as f:
+    with open(mode+'.p', 'wb') as f:
         pickle.dump(history, f)
 
     
