@@ -13,19 +13,42 @@ import os
 import pickle
 from subprocess import call
 
-def create_plain_model(num_conv=4, depth=16, batch_norm=True):
+def identity_block(x_, depth, batch_norm=True):
+    x = Conv2D(depth, (3, 3), padding='same', kernel_initializer='he_normal',
+               kernel_regularizer=regularizer, bias_regularizer=regularizer)(x_)
+    x = Activation('elu')(x)
+    if batch_norm is True:
+        x = BatchNormalization(scale=True, center=True)(x)
+    x = Conv2D(depth, (3, 3), padding='same', kernel_initializer='he_normal',
+               kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
+    x = Add()([x, x_])
+    x = Activation('elu')(x)
+    if batch_norm is True:
+        x = BatchNormalization(scale=True, center=True)(x)
+    return x
+
+def create_model(num_conv=4, depth=16, batch_norm=True, resnet=False):
     img_in = Input((32,32,3), name='input')
     x = img_in
     
-    for i in range(num_conv):
+    if resnet is False:
+        for i in range(num_conv):
+            x = Conv2D(depth, (3, 3), padding='same', kernel_initializer='he_normal',
+                       kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
+            x = Activation('elu')(x)
+            if batch_norm is True:
+                x = BatchNormalization(scale=True, center=True)(x)
+    else:
         x = Conv2D(depth, (3, 3), padding='same', kernel_initializer='he_normal',
-                   kernel_regularizer=regularizer, bias_regularizer=regularizer,
-                   name='conv2d_'+str(i+1))(x)
-        x = Activation('elu', name='elu_'+str(i+1))(x)
+                   kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
+        x = Activation('elu')(x)
         if batch_norm is True:
             x = BatchNormalization(scale=True, center=True)(x)
 
-    x = AveragePooling2D((16,16))(x)
+        for i in range(num_conv/2):
+            x = identity_block(x, depth, batch_norm)
+
+    x = AveragePooling2D((32,32))(x)
     x = Flatten(name='flatten')(x)
     x = Dense(num_classes, name='classify')(x)
     x = Activation('softmax', name='activation_classify')(x)
@@ -72,7 +95,7 @@ if __name__ == '__main__':
     x_train = x_train.astype(np.float32) / 255 - 0.5
     x_test = x_test.astype(np.float32) / 255 - 0.5
 
-    model = create_plain_model(10, depth=32, batch_norm=False)
+    model = create_model(11, depth=32, batch_norm=False, resnet=True)
     model.summary()
     hist = train(model).history
 
