@@ -1,3 +1,6 @@
+import numpy as np
+np.random.seed(42)
+
 from keras.preprocessing.image import ImageDataGenerator
 from keras.datasets import cifar10
 from keras.models import Model, load_model
@@ -8,7 +11,6 @@ from keras.losses import sparse_categorical_crossentropy
 from keras.utils import plot_model
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
 from keras.applications import ResNet50
-import numpy as np
 import os
 import pickle
 from subprocess import call
@@ -56,8 +58,6 @@ def create_model(num_conv=4, depth=16, batch_norm=True, resnet=False):
     return model
 
 def train(model):
-    model.compile(optimizer=SGD(momentum=0.9, nesterov=True, clipnorm=1), loss=sparse_categorical_crossentropy,
-                  metrics=['accuracy'])
     datagen = ImageDataGenerator(
         featurewise_center=False,  # set input mean to 0 over the dataset
         samplewise_center=False,  # set each sample mean to 0
@@ -95,7 +95,9 @@ if __name__ == '__main__':
     x_train = x_train.astype(np.float32) / 255 - 0.5
     x_test = x_test.astype(np.float32) / 255 - 0.5
 
-    model = create_model(11, depth=32, batch_norm=False, resnet=True)
+    model = create_model(11, depth=32, batch_norm=False, resnet=False)
+    model.compile(optimizer=SGD(momentum=0.9, nesterov=True, clipnorm=1), loss=sparse_categorical_crossentropy,
+                  metrics=['accuracy'])
     model.summary()
     hist = train(model).history
 
