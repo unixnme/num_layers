@@ -95,9 +95,10 @@ if __name__ == '__main__':
     x_train = x_train.astype(np.float32) / 255 - 0.5
     x_test = x_test.astype(np.float32) / 255 - 0.5
 
-    model = create_model(11, depth=32, batch_norm=False, resnet=False)
-    model.compile(optimizer=SGD(momentum=0.9, nesterov=True, clipnorm=1), loss=sparse_categorical_crossentropy,
-                  metrics=['accuracy'])
-    model.summary()
-    hist = train(model).history
+    for num_layers in range(11, 102, 10):
+        model = create_model(11, depth=32, batch_norm=False, resnet=True)
+        model.compile(optimizer=SGD(momentum=0.9, nesterov=True, clipnorm=1), loss=sparse_categorical_crossentropy,
+                      metrics=['accuracy'])
+        model.summary()
+        hist = train(model).history
 
