@@ -4,7 +4,7 @@ np.random.seed(42)
 from keras.preprocessing.image import ImageDataGenerator
 from keras.datasets import cifar10
 from keras.models import Model, load_model
-from keras.layers import Dense, Conv2D, AveragePooling2D, MaxPooling2D, Activation, Add, Input, Flatten, BatchNormalization, Lambda
+from keras.layers import Dense, Conv2D, AveragePooling2D, MaxPooling2D, Activation, Add, Input, Flatten, BatchNormalization, Lambda, Dropout
 from keras.optimizers import SGD, RMSprop
 from keras.regularizers import l2
 from keras.losses import sparse_categorical_crossentropy
@@ -12,6 +12,7 @@ from keras.utils import plot_model
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
 from keras.applications import ResNet50
 import os
+import sys
 import pickle
 from subprocess import call
 import matplotlib
@@ -20,13 +21,14 @@ import matplotlib.pyplot as plt
 
 layer_idx = 1
 
-def identity_block(x_, depth, batch_norm=True):
+def identity_block(x_, depth, batch_norm=True, drop_rate=1.0):
     global layer_idx
 
     x = Conv2D(depth, (3, 3), padding='same', kernel_initializer='he_normal',
                kernel_regularizer=regularizer, bias_regularizer=regularizer,
                name='conv_'+str(layer_idx))(x_)
     x = Activation('elu', name='elu_'+str(layer_idx))(x)
+    x = Dropout(drop_rate, name='dropout'+str(drop_rate)+'_'+str(layer_idx))(x)
     if batch_norm is True:
         x = BatchNormalization(scale=True, center=True, name='bn_'+str(layer_idx))(x)
     layer_idx += 1
@@ -36,12 +38,13 @@ def identity_block(x_, depth, batch_norm=True):
                name='conv_'+str(layer_idx))(x)
     x = Add(name='add_'+str(layer_idx))([x, x_])
     x = Activation('elu', name='elu_'+str(layer_idx))(x)
+    x = Dropout(drop_rate, name='dropout'+str(drop_rate)+'_'+str(layer_idx))(x)
     if batch_norm is True:
         x = BatchNormalization(scale=True, center=True, name='bn_'+str(layer_idx))(x)
     layer_idx += 1
     return x
 
-def create_model(num_conv=4, depth=16, batch_norm=True, resnet=False):
+def create_model(num_conv=4, depth=16, batch_norm=True, resnet=False, drop_rate=1.):
     global layer_idx
     layer_idx = 1
 
@@ -52,6 +55,7 @@ def create_model(num_conv=4, depth=16, batch_norm=True, resnet=False):
                kernel_regularizer=regularizer, bias_regularizer=regularizer,
                name='conv_'+str(layer_idx))(x)
     x = Activation('elu', name='elu_'+str(layer_idx))(x)
+    x = Dropout(drop_rate, name='dropout'+str(drop_rate)+'_'+str(layer_idx))(x)
     if batch_norm is True:
         x = BatchNormalization(scale=True, center=True, name='bn_'+str(layer_idx))(x)
     layer_idx += 1
@@ -62,12 +66,13 @@ def create_model(num_conv=4, depth=16, batch_norm=True, resnet=False):
                        kernel_regularizer=regularizer, bias_regularizer=regularizer,
                        name='conv_'+str(layer_idx))(x)
             x = Activation('elu', name='elu_'+str(layer_idx))(x)
+            x = Dropout(drop_rate, name='dropout'+str(drop_rate)+'_'+str(layer_idx))(x)
             if batch_norm is True:
                 x = BatchNormalization(scale=True, center=True, name='bn_'+str(layer_idx))(x)
             layer_idx += 1
     else:
         for i in range(num_conv/2):
-            x = identity_block(x, depth, batch_norm)
+            x = identity_block(x, depth, batch_norm, drop_rate)
 
     x = AveragePooling2D((32,32), name='pooling')(x)
     x = Flatten(name='flatten')(x)
@@ -105,49 +110,51 @@ if __name__ == '__main__':
     batch_size = 100
     num_classes = 10
     epochs = 1000
+    depth = 32
+    layers = 10
     data_augmentation = True
-    mode = 'plain_resnet'
-    model_name = mode + '.h5'
     regularizer = l2(1e-5)
+    drop_rate = 0.1
+    name = 'plain_resnet' + str(layers) + \
+            '_depth_' + str(depth) + \
+            '_drop_' + str(drop_rate)
+    model_name = name + '.h5'
 
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     x_train = x_train.astype(np.float32) / 255 - 0.5
     x_test = x_test.astype(np.float32) / 255 - 0.5
 
-    resnet = [False, True]
-    hist = []
-    if os.path.isfile(model_name):
-        call(['rm', model_name])
-    for r in resnet:
-        model = create_model(50, depth=32, batch_norm=True, resnet=r)
-        if os.path.isfile(model_name):
-            model.load_weights(model_name, by_name=True)
-        model.summary()
-        model.compile(optimizer=SGD(momentum=0.9, nesterov=True), loss=sparse_categorical_crossentropy,
-                      metrics=['accuracy'])
-        hist.append(train(model).history)
+    with open('nohup.out.' + name, 'w') as output_file:
+        sys.stdout =output_file
 
-    #  "Accuracy"
-    name = 'plain_resnet'
-    fig = plt.figure()
-    plt.semilogy(hist[0]['acc'])
-    plt.semilogy(hist[1]['acc'])
-    plt.semilogy(hist[0]['val_acc'])
-    plt.semilogy(hist[1]['val_acc'])
-    plt.title('model accuracy')
-    plt.ylabel('dice coefficient')
-    plt.xlabel('epoch')
-    plt.legend(['plain train', 'resnet train', 'plain val', 'resnet val'], loc='upper left')
-    fig.savefig(name + '_acc.png')
-    # "Loss"
-    fig = plt.figure()
-    plt.semilogy(hist[0]['loss'])
-    plt.semilogy(hist[1]['loss'])
-    plt.semilogy(hist[0]['val_loss'])
-    plt.semilogy(hist[1]['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['plain train', 'resnet train', 'plain val', 'resnet val'], loc='upper left')
-    fig.savefig(name + '_loss.png')
+        resnet = [False, True]
+        hist = []
+        if os.path.isfile(model_name):
+            call(['rm', model_name])
+        for r in resnet:
+            model = create_model(layers, depth=depth, batch_norm=True, resnet=r,
+                    drop_rate=drop_rate)
+            if os.path.isfile(model_name):
+                model.load_weights(model_name, by_name=True)
+            model.summary()
+            model.compile(optimizer=SGD(momentum=0.9, nesterov=True), loss=sparse_categorical_crossentropy,
+                          metrics=['accuracy'])
+            hist.append(train(model).history)
+
+        #  "Accuracy"
+        fig = plt.figure()
+        axes = plt.gca()
+        plt.plot(hist[0]['acc'])
+        plt.plot(hist[1]['acc'])
+        plt.plot(hist[0]['val_acc'])
+        plt.plot(hist[1]['val_acc'])
+        axes.set_ylim([0, 1])
+        plt.title('model accuracy')
+        plt.ylabel('dice coefficient')
+        plt.xlabel('epoch')
+        plt.legend(['plain train', 'resnet train', 'plain val', 'resnet val'], loc='upper left')
+        fig.savefig(name + '_acc.png')
+
+        with open(name+'.p', 'wb') as f:
+            pickle.dump(hist, f)
 
