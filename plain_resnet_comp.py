@@ -142,6 +142,8 @@ if __name__ == '__main__':
                     drop_rate=drop_rate)
             if os.path.isfile(model_name):
                 model.load_weights(model_name, by_name=True)
+            else:
+                model.save(model_name)
             model.summary()
             model.compile(optimizer=SGD(momentum=0.9, nesterov=True), loss=sparse_categorical_crossentropy,
                           metrics=['accuracy'])
