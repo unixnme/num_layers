@@ -21,6 +21,14 @@ import matplotlib.pyplot as plt
 
 layer_idx = 1
 
+def lr_decay(epoch):
+    x = float(epoch) / epochs
+    start = 1e-2
+    end = 1e-4
+    lr = end*x + start*(1-x)
+    print 'lr = ' + str(lr)
+    return lr
+
 def identity_block(x_, depth, batch_norm=True, drop_rate=1.0):
     global layer_idx
 
@@ -95,9 +103,7 @@ def train(model):
         vertical_flip=False)  # randomly flip images
 
     steps_per_epoch = int(np.ceil(float(len(x_train)) / batch_size))
-    checkpoints = [ReduceLROnPlateau(factor=.5, verbose=1, patience=20),
-                   #ModelCheckpoint(model_name, verbose=1, save_best_only=True),
-                   EarlyStopping(patience=30, verbose=1)]
+    checkpoints = [LearningRateScheduler(lr_decay)]
     hist = model.fit_generator(generator=datagen.flow(x_train, y_train,
                                      batch_size=batch_size),
                         steps_per_epoch=steps_per_epoch,
@@ -109,12 +115,12 @@ def train(model):
 if __name__ == '__main__':
     batch_size = 100
     num_classes = 10
-    epochs = 1000
+    epochs = 200
     depth = 32
     layers = 10
     data_augmentation = True
     regularizer = l2(1e-5)
-    drop_rate = 0.1
+    drop_rate = 0.0
     name = 'plain_resnet' + str(layers) + \
             '_depth_' + str(depth) + \
             '_drop_' + str(drop_rate)
@@ -152,7 +158,7 @@ if __name__ == '__main__':
         plt.title('model accuracy')
         plt.ylabel('dice coefficient')
         plt.xlabel('epoch')
-        plt.legend(['plain train', 'resnet train', 'plain val', 'resnet val'], loc='upper left')
+        plt.legend(['plain train', 'resnet train', 'plain val', 'resnet val'], loc='lower right')
         fig.savefig(name + '_acc.png')
 
         with open(name+'.p', 'wb') as f:
