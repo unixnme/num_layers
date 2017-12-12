@@ -124,8 +124,8 @@ if __name__ == '__main__':
     layers = 40
     data_augmentation = True
     regularizer = l2(1e-5)
-    drop_rate = 0.0
-    layers_per_block = [5, 10, 20]
+    drop_rate = 0.1
+    layers_per_block = [1, 5, 10, 20]
     name = 'resnet' + str(layers) + \
             '_lpb' + str(layers_per_block).replace(' ', '').replace('[', '').replace(']', '') + \
             '_depth' + str(depth) + \
@@ -161,17 +161,14 @@ if __name__ == '__main__':
         #  "Accuracy"
         fig = plt.figure()
         axes = plt.gca()
-        plt.plot(hist[0]['acc'])
-        plt.plot(hist[1]['acc'])
-        plt.plot(hist[2]['acc'])
-        plt.plot(hist[0]['val_acc'])
-        plt.plot(hist[1]['val_acc'])
-        plt.plot(hist[2]['val_acc'])
+        for i in range(len(layers_per_block)):
+        plt.plot(hist[i]['acc'])
+        plt.plot(hist[i]['val_acc'])
         axes.set_ylim([0, 1])
         plt.title('model accuracy')
-        plt.ylabel('dice coefficient')
+        plt.ylabel('accuracy')
         plt.xlabel('epoch')
-        plt.legend(['resnet5 train', 'resnet10 train', 'resnet20 train', 'resnet5 val', 'resnet10 val', 'resnet20 val'], loc='lower right')
+        plt.legend(['resnet1 train', 'resnet1 val', 'resnet5 train', 'resnet5 val', 'resnet10 train', 'resnet10 val', 'resnet20 train', 'resnet20 val'], loc='lower right')
         fig.savefig(name + '_acc.png')
 
 
