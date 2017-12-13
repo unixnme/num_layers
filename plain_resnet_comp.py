@@ -29,6 +29,16 @@ def lr_decay(epoch):
     print 'lr = ' + str(lr)
     return lr
 
+def exp_decay(epoch):
+    x = float(epoch) / epochs
+    start = 1e-2
+    end = 1e-4
+    half_life = 1 / np.log(end / start)
+    lr = start * np.exp(x / half_life)
+    print 'lr = ' + str(lr)
+    return lr
+
+
 def identity_block(x_, depth, batch_norm=True, drop_rate=1.0):
     global layer_idx
 
@@ -103,7 +113,7 @@ def train(model):
         vertical_flip=False)  # randomly flip images
 
     steps_per_epoch = int(np.ceil(float(len(x_train)) / batch_size))
-    checkpoints = [LearningRateScheduler(lr_decay)]
+    checkpoints = [LearningRateScheduler(exp_decay)]
     hist = model.fit_generator(generator=datagen.flow(x_train, y_train,
                                      batch_size=batch_size),
                         steps_per_epoch=steps_per_epoch,
@@ -117,13 +127,14 @@ if __name__ == '__main__':
     num_classes = 10
     epochs = 200
     depth = 32
-    layers = 10
+    layers = 40
     data_augmentation = True
     regularizer = l2(1e-5)
-    drop_rate = 0.0
+    drop_rate = 0.1
     name = 'plain_resnet' + str(layers) + \
-            '_depth_' + str(depth) + \
-            '_drop_' + str(drop_rate)
+            '_depth' + str(depth) + \
+            '_drop' + str(drop_rate) + \
+            '_exp_decay'
     model_name = name + '.h5'
 
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
