@@ -121,7 +121,7 @@ if __name__ == '__main__':
     num_classes = 10
     epochs = 200
     depth = 32
-    layers = 40
+    layers = 160
     data_augmentation = True
     regularizer = l2(1e-5)
     drop_rate = 0.1
